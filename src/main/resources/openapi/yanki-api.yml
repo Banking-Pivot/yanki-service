@@ -1,0 +1,805 @@
+openapi: 3.0.3
+info:
+  title: Yanki API
+  version: 1.0.0
+  description: |
+    API of Yanki, the mobile wallet of the bank. Anyone with an identity document, a mobile
+    number, the IMEI of the phone and an email can open a wallet; being a customer of the bank
+    is not required. Payments are sent and received with the mobile number alone.
+
+    A wallet has its own balance in PEN, loaded with top-ups and with the payments it receives.
+    A wallet can be linked to a debit card of the bank. While it is linked, what it pays is
+    charged to the main account of the card and what it receives is credited there; its own
+    balance is kept but not used. A card is linked only to a wallet opened with the identity
+    document of the customer that holds the card, and to one wallet at a time.
+
+    A payment can move at most 500.00, and a wallet can send at most 2000.00 per day (calendar
+    day of America/Lima), counting the payments of the day that were not rejected. Both amounts
+    are settings of the service.
+
+    Yanki Service owns the wallet balances. It never calls another service by REST: the card is
+    checked by Card Service and the money of a bank account is moved by Transaction Service,
+    both through the event broker.
+
+    A payment is answered at once with 202:
+    - Neither wallet is linked: both balances change together and the payment is COMPLETED.
+    - A wallet is linked: the payment is PENDING until Transaction Service answers. Its result
+      is read with GET /api/v1/yanki/payments/{paymentId}: COMPLETED, or REJECTED with the
+      reason. When the sender paid from the wallet balance and the payment is rejected, the
+      amount goes back to the wallet.
+
+    A request that gets no answer is sent again until it is answered; every step is idempotent,
+    so a repeat never moves money twice.
+
+    Amounts have at most two decimals. Instants are UTC.
+servers:
+  - url: /
+tags:
+  - name: Wallets
+    description: Wallets, their balance, top-ups, movements and debit card.
+  - name: Payments
+    description: Payments between wallets by mobile number.
+paths:
+  /api/v1/yanki/wallets:
+    post:
+      tags: [Wallets]
+      operationId: registerWallet
+      summary: Open a wallet
+      description: |
+        The mobile number and the identity document can each have one wallet. The wallet starts
+        with balance 0.00.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterWalletRequest'
+            example:
+              documentType: DNI
+              documentNumber: '45678912'
+              phoneNumber: '987654321'
+              imei: '356938035643809'
+              email: ana.perez@example.com
+      responses:
+        '201':
+          description: The wallet was opened.
+          headers:
+            Location:
+              description: Where to read the wallet.
+              schema:
+                type: string
+              example: /api/v1/yanki/wallets/5b7d3f2a-9c1e-4e8f-9a0b-1c2d3e4f5a6b
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: |
+            The mobile number (PHONE_ALREADY_REGISTERED) or the identity document
+            (DOCUMENT_ALREADY_REGISTERED) already has a wallet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: PHONE_ALREADY_REGISTERED
+                message: The mobile number already has a wallet.
+                timestamp: '2026-11-20T15:00:00Z'
+                path: /api/v1/yanki/wallets
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/BusinessRule'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags: [Wallets]
+      operationId: listWallets
+      summary: List wallets, or find the wallet of a mobile number
+      description: |
+        Newest first. Pages are not snapshots; out-of-range pages return empty items. With
+        phoneNumber the page has the wallet of that number, or no items.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: phoneNumber
+          in: query
+          description: Returns the wallet registered with this mobile number.
+          schema:
+            $ref: '#/components/schemas/PhoneNumber'
+      responses:
+        '200':
+          description: Wallet page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/yanki/wallets/{walletId}:
+    parameters:
+      - $ref: '#/components/parameters/WalletId'
+    get:
+      tags: [Wallets]
+      operationId: getWallet
+      summary: Read a wallet with its balance and its card
+      responses:
+        '200':
+          description: The wallet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/WalletNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/yanki/wallets/{walletId}/top-ups:
+    parameters:
+      - $ref: '#/components/parameters/WalletId'
+    post:
+      tags: [Wallets]
+      operationId: topUpWallet
+      summary: Load money into the wallet balance
+      description: |
+        Adds the amount to the balance of the wallet, once per operationId. A wallet linked to a
+        debit card cannot be topped up: its money is in the bank account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopUpRequest'
+            example:
+              operationId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+              amount: 100.00
+      responses:
+        '201':
+          description: |
+            The top-up was recorded, or it was already recorded with the same amount (then
+            Idempotent-Replayed is true and the body is the movement of the first time).
+          headers:
+            Idempotent-Replayed:
+              $ref: '#/components/headers/IdempotentReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/WalletNotFound'
+        '409':
+          $ref: '#/components/responses/OperationConflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/BusinessRule'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/yanki/wallets/{walletId}/card:
+    parameters:
+      - $ref: '#/components/parameters/WalletId'
+    put:
+      tags: [Wallets]
+      operationId: linkCard
+      summary: Link the wallet to a debit card
+      description: |
+        Records the request and asks Card Service about the card. The link starts PENDING and
+        becomes LINKED when the card exists, is active and its holder has the identity document
+        of the wallet (same type and number), or REJECTED with the reason; read it with
+        GET /api/v1/yanki/wallets/{walletId}. A card of another person, or one whose holder
+        Card Service does not report, is REJECTED with CARD_NOT_OWNED. Until it is LINKED the
+        wallet keeps using its own balance. Asking again for the same card changes nothing. A
+        wallet that is LINKED must be unlinked before it can take another card.
+
+        A card that is LINKED or PENDING in another wallet is refused at once with 422
+        CARD_ALREADY_LINKED; a card whose request was REJECTED, or that was unlinked, is free.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkCardRequest'
+            example:
+              cardId: 2f1e0d9c-8b7a-4c6d-9e5f-4a3b2c1d0e9f
+      responses:
+        '202':
+          description: The wallet with the state of the link.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/WalletNotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/BusinessRule'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Wallets]
+      operationId: unlinkCard
+      summary: Unlink the wallet from its debit card
+      description: |
+        The wallet goes back to its own balance. Payments already requested keep the card they
+        were requested with. A wallet without a card answers 204 as well.
+      responses:
+        '204':
+          description: The wallet has no card.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/WalletNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/yanki/wallets/{walletId}/movements:
+    parameters:
+      - $ref: '#/components/parameters/WalletId'
+    get:
+      tags: [Wallets]
+      operationId: listWalletMovements
+      summary: List the movements of a wallet using bounded pagination
+      description: |
+        Top-ups, payments sent, payments received and refunds, newest first. Pages are not
+        snapshots; out-of-range pages return empty items.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Movement page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/WalletNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/yanki/payments:
+    post:
+      tags: [Payments]
+      operationId: requestPayment
+      summary: Send a payment to a mobile number
+      description: |
+        Where the money comes from and where it goes is decided now, from the state of each
+        wallet, and kept with the payment: the wallet balance, or the main account of the debit
+        card of a wallet that is LINKED. See OperationId for idempotency.
+
+        Limits, checked before anything is recorded: an amount above the maximum per payment
+        is refused with 422 PAYMENT_LIMIT_EXCEEDED, and a payment that would take what the
+        sending wallet sent today (payments not REJECTED) above the daily maximum is refused
+        with 422 DAILY_LIMIT_EXCEEDED. A repeat of a payment already recorded is answered as
+        always, without checking the limits again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+            example:
+              operationId: 4a6c8e0b-2d4f-4b1a-9c3e-5f7a9b1c3d5e
+              fromPhoneNumber: '987654321'
+              toPhoneNumber: '912345678'
+              amount: 25.50
+              description: Lunch
+      responses:
+        '202':
+          description: |
+            The payment was recorded (COMPLETED when no bank account takes part, PENDING
+            otherwise), or it was already recorded with the same data (then Idempotent-Replayed
+            is true and the body is its current state).
+          headers:
+            Location:
+              description: Where to read the payment.
+              schema:
+                type: string
+              example: /api/v1/yanki/payments/4a6c8e0b-2d4f-4b1a-9c3e-5f7a9b1c3d5e
+            Idempotent-Replayed:
+              $ref: '#/components/headers/IdempotentReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/WalletNotFound'
+        '409':
+          $ref: '#/components/responses/OperationConflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/BusinessRule'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/yanki/payments/{paymentId}:
+    parameters:
+      - name: paymentId
+        in: path
+        required: true
+        description: The operationId the payment was requested with.
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Payments]
+      operationId: getPayment
+      summary: Read a payment and its result
+      responses:
+        '200':
+          description: The payment in its current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: The payment does not exist (PAYMENT_NOT_FOUND).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  parameters:
+    WalletId:
+      name: walletId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      description: Zero-based page number.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 10000
+        default: 0
+    Size:
+      name: size
+      in: query
+      description: Maximum number of items per page.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+  headers:
+    IdempotentReplayed:
+      description: Present with the value true when the request repeats a recorded operation.
+      schema:
+        type: string
+        enum: ['true']
+  responses:
+    BadRequest:
+      description: Malformed JSON, invalid UUID, or invalid field or parameter.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INVALID_REQUEST
+            message: 'Invalid or missing fields: phoneNumber.'
+            timestamp: '2026-11-20T15:00:00Z'
+            path: /api/v1/yanki/wallets
+    WalletNotFound:
+      description: The wallet does not exist, or no wallet has that mobile number (WALLET_NOT_FOUND).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: WALLET_NOT_FOUND
+            message: The wallet does not exist.
+            timestamp: '2026-11-20T15:00:00Z'
+            path: /api/v1/yanki/wallets/5b7d3f2a-9c1e-4e8f-9a0b-1c2d3e4f5a6b
+    OperationConflict:
+      description: |
+        The operationId already identifies an operation with different data
+        (OPERATION_ID_CONFLICT).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: OPERATION_ID_CONFLICT
+            message: The operationId was already used with different data.
+            timestamp: '2026-11-20T15:00:00Z'
+            path: /api/v1/yanki/payments
+    BusinessRule:
+      description: |
+        A business rule rejects the request. Codes: INVALID_DOCUMENT_NUMBER (the number does not
+        fit the document type), INVALID_AMOUNT, SAME_WALLET (a payment to the same mobile
+        number), INSUFFICIENT_FUNDS (the wallet balance does not cover the payment),
+        WALLET_LINKED_TO_CARD (top-up of a linked wallet), WALLET_ALREADY_LINKED (another card
+        while linked), CARD_ALREADY_LINKED (the card is linked to another wallet, or being
+        checked for it), PAYMENT_LIMIT_EXCEEDED (the amount is above the maximum per payment),
+        DAILY_LIMIT_EXCEEDED (the wallet would send more than the maximum per day),
+        BALANCE_LIMIT_EXCEEDED.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INSUFFICIENT_FUNDS
+            message: The wallet balance does not cover the amount.
+            timestamp: '2026-11-20T15:00:00Z'
+            path: /api/v1/yanki/payments
+    UnsupportedMediaType:
+      description: The request body is not application/json (UNSUPPORTED_MEDIA_TYPE).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Unexpected failure (INTERNAL_ERROR). The response never exposes internals.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    OperationId:
+      title: OperationId
+      type: string
+      format: uuid
+      description: |
+        Idempotency key generated by the client, one per intended operation. For a payment it
+        becomes the ID of the payment and of the transaction Transaction Service runs for it.
+        Repeating the request with the same data returns the recorded operation and does
+        nothing new. The same key with different data returns 409 OPERATION_ID_CONFLICT.
+      example: 4a6c8e0b-2d4f-4b1a-9c3e-5f7a9b1c3d5e
+    PhoneNumber:
+      title: PhoneNumber
+      type: string
+      pattern: '^9\d{8}$'
+      description: Peruvian mobile number, nine digits starting with 9, without the country code.
+      example: '987654321'
+    RegisterWalletRequest:
+      title: RegisterWalletRequest
+      type: object
+      additionalProperties: false
+      required: [documentType, documentNumber, phoneNumber, imei, email]
+      properties:
+        documentType:
+          $ref: '#/components/schemas/DocumentType'
+        documentNumber:
+          type: string
+          pattern: '^[A-Za-z0-9]{6,12}$'
+          description: |
+            DNI: 8 digits. CEX (foreign resident card): 9 to 12 letters or digits. PASSPORT: 6 to
+            12 letters or digits. Letters are stored in upper case.
+          example: '45678912'
+        phoneNumber:
+          $ref: '#/components/schemas/PhoneNumber'
+        imei:
+          type: string
+          pattern: '^\d{15}$'
+          description: IMEI of the phone, 15 digits.
+          example: '356938035643809'
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Stored in lower case.
+          example: ana.perez@example.com
+    TopUpRequest:
+      title: TopUpRequest
+      type: object
+      additionalProperties: false
+      required: [operationId, amount]
+      properties:
+        operationId:
+          $ref: '#/components/schemas/OperationId'
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 999999999999.99
+          multipleOf: 0.01
+          x-field-extra-annotation: '@jakarta.validation.constraints.Digits(integer = 12, fraction = 2)'
+          description: Positive amount in PEN with at most two decimals.
+          example: 100.00
+    LinkCardRequest:
+      title: LinkCardRequest
+      type: object
+      additionalProperties: false
+      required: [cardId]
+      properties:
+        cardId:
+          type: string
+          format: uuid
+          description: ID of the debit card in Card Service.
+    PaymentRequest:
+      title: PaymentRequest
+      type: object
+      additionalProperties: false
+      required: [operationId, fromPhoneNumber, toPhoneNumber, amount]
+      properties:
+        operationId:
+          $ref: '#/components/schemas/OperationId'
+        fromPhoneNumber:
+          $ref: '#/components/schemas/PhoneNumber'
+        toPhoneNumber:
+          $ref: '#/components/schemas/PhoneNumber'
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 999999999999.99
+          multipleOf: 0.01
+          x-field-extra-annotation: '@jakarta.validation.constraints.Digits(integer = 12, fraction = 2)'
+          description: Positive amount in PEN with at most two decimals.
+          example: 25.50
+        description:
+          type: string
+          minLength: 1
+          maxLength: 140
+          description: Free text recorded with the movements of the payment.
+          example: Lunch
+    WalletResponse:
+      title: WalletResponse
+      type: object
+      required: [id, documentType, documentNumber, phoneNumber, imei, email, balance, currency, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        documentType:
+          $ref: '#/components/schemas/DocumentType'
+        documentNumber:
+          type: string
+        phoneNumber:
+          type: string
+        imei:
+          type: string
+        email:
+          type: string
+        balance:
+          type: number
+          description: Own balance of the wallet. Kept but not used while the wallet is LINKED to a card.
+          example: 74.50
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        card:
+          $ref: '#/components/schemas/CardLink'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CardLink:
+      title: CardLink
+      type: object
+      description: The debit card the wallet asked to be linked to. Absent when it has none.
+      required: [cardId, status]
+      properties:
+        cardId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/CardLinkStatus'
+        rejection:
+          $ref: '#/components/schemas/Rejection'
+    Rejection:
+      title: Rejection
+      type: object
+      description: Why a card link or a payment was rejected.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: |
+            Error code of the service that rejected it, or CARD_NOT_OWNED when Yanki Service
+            rejected a card link because the holder of the card does not have the identity
+            document of the wallet.
+          example: CARD_NOT_ACTIVE
+        message:
+          type: string
+          example: The card is blocked.
+    WalletPageResponse:
+      title: WalletPageResponse
+      type: object
+      required: [items, page, size, totalElements, totalPages]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/WalletResponse'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int64
+          description: Ceiling of totalElements divided by size; zero when there are no matches.
+    MovementResponse:
+      title: MovementResponse
+      type: object
+      required: [id, walletId, type, fundedBy, amount, balanceAfter, operationId, occurredAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        walletId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/MovementType'
+        fundedBy:
+          $ref: '#/components/schemas/Funding'
+        amount:
+          type: number
+          example: 25.50
+        balanceAfter:
+          type: number
+          description: Own balance of the wallet after the movement. A movement funded by CARD leaves it as it was.
+          example: 74.50
+        operationId:
+          type: string
+          format: uuid
+          description: The operationId of the top-up, or the ID of the payment.
+        counterpartyPhoneNumber:
+          type: string
+          description: The other mobile number of a payment.
+        description:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+    MovementPageResponse:
+      title: MovementPageResponse
+      type: object
+      required: [items, page, size, totalElements, totalPages]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/MovementResponse'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int64
+    PaymentResponse:
+      title: PaymentResponse
+      type: object
+      required: [id, status, fromWalletId, toWalletId, fromPhoneNumber, toPhoneNumber, amount, currency, sourceFunding, destinationFunding, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The operationId of the request.
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        fromWalletId:
+          type: string
+          format: uuid
+        toWalletId:
+          type: string
+          format: uuid
+        fromPhoneNumber:
+          type: string
+        toPhoneNumber:
+          type: string
+        amount:
+          type: number
+          example: 25.50
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        description:
+          type: string
+        sourceFunding:
+          $ref: '#/components/schemas/Funding'
+        destinationFunding:
+          $ref: '#/components/schemas/Funding'
+        sourceCardId:
+          type: string
+          format: uuid
+          description: Debit card whose main account pays. Present when sourceFunding is CARD.
+        destinationCardId:
+          type: string
+          format: uuid
+          description: Debit card whose main account receives. Present when destinationFunding is CARD.
+        fee:
+          type: number
+          description: Movement fee the bank account paid for the debit, when Transaction Service reports one.
+          example: 0.00
+        rejection:
+          $ref: '#/components/schemas/Rejection'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the payment last changed its status.
+    ErrorResponse:
+      title: ErrorResponse
+      type: object
+      required: [code, message, timestamp, path]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error identifier.
+          example: WALLET_NOT_FOUND
+        message:
+          type: string
+          description: Human-readable explanation of the error.
+          example: The wallet does not exist.
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-11-20T15:00:00Z'
+        path:
+          type: string
+          example: /api/v1/yanki/wallets/5b7d3f2a-9c1e-4e8f-9a0b-1c2d3e4f5a6b
+        traceId:
+          type: string
+          description: >-
+            Correlation identifier of the request: the X-Correlation-ID header received, or
+            the one generated when it was absent. It is also returned in that header and
+            written in the logs of every service the request reached, including the ones that
+            take part in a payment later.
+    DocumentType:
+      title: DocumentType
+      type: string
+      enum: [DNI, CEX, PASSPORT]
+    CardLinkStatus:
+      title: CardLinkStatus
+      type: string
+      enum: [PENDING, LINKED, REJECTED]
+      description: PENDING while Card Service has not answered; only LINKED changes how the wallet pays and receives.
+    PaymentStatus:
+      title: PaymentStatus
+      type: string
+      enum: [PENDING, COMPLETED, REJECTED]
+    MovementType:
+      title: MovementType
+      type: string
+      enum: [TOP_UP, PAYMENT_SENT, PAYMENT_RECEIVED, REFUND]
+      description: REFUND returns to the wallet a payment sent from its balance that was rejected afterwards.
+    Funding:
+      title: Funding
+      type: string
+      enum: [WALLET, CARD]
+      description: WALLET when the money is the wallet balance; CARD when it is the main account of the linked debit card.
+    CurrencyCode:
+      title: CurrencyCode
+      type: string
+      enum: [PEN]

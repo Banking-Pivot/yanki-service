@@ -1,0 +1,22 @@
+# Settings served by the stub Config Server in integration tests. Pinned here so tests do not
+# depend on the banking-config repository; same shape as banking-config/yanki-service.yml.
+yanki:
+  messaging:
+    transaction-commands-topic: banking.transaction.commands
+    card-commands-topic: banking.card.commands
+    replies-topic: banking.yanki.replies
+    publish-timeout: 5s
+    # Short wait so the test of a retried answer stays fast.
+    retry-interval: 100ms
+    # The periodic re-send stays out of the way: the tests run it themselves.
+    resend-interval: 1h
+    resend-after: 30s
+    resend-batch-size: 50
+  limits:
+    payment-max: 500.00
+    daily-sent-max: 2000.00
+  business-zone: America/Lima
+spring:
+  r2dbc:
+    pool:
+      max-size: 20

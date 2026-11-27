@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: yanki-service
+
+  # Port, database URLs (R2DBC and Flyway), the address of Kafka, topic names and re-send
+  # times come from the Config Server: banking-config/yanki-service.yml and
+  # yanki-service-<profile>.yml. Secrets (the database user and password) come from
+  # Vault: secret/yanki-service and secret/yanki-service/<profile>. Where Eureka
+  # is comes from banking-config/application.yml: the service registers there as
+  # yanki-service.
+  config:
+    import:
+      - "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+      # Role ID and secret ID of this service's AppRole. In local development infra/vault
+      # writes this file every time Vault starts; elsewhere point VAULT_APPROLE_FILE to the
+      # file, or set SPRING_CLOUD_VAULT_APP_ROLE_ROLE_ID and SPRING_CLOUD_VAULT_APP_ROLE_SECRET_ID.
+      - "optional:file:${VAULT_APPROLE_FILE:../infra/.secrets/yanki-service.properties}"
+      - "vault://"
+
+  cloud:
+    vault:
+      uri: ${VAULT_URI:http://localhost:8200}
+      authentication: APPROLE
+      # Without its secrets the service cannot reach its database: stop at startup with the
+      # Vault error instead of failing later on a login to PostgreSQL.
+      fail-fast: true
+      kv:
+        # Read only this service's paths, not the shared secret/application.
+        default-context: ""
+
+  # Requests to Card Service and Transaction Service go out and their answers come in as JSON
+  # text. Keys are IDs, so the messages of one card or one payment keep their order.
+  kafka:
+    consumer:
+      group-id: yanki-service
+      # A new group starts from the oldest answer still in the topic, so none is missed.
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      # A request counts as sent once the broker has it stored.
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        # How long a send may wait for the broker before it fails. The payment or the card link
+        # is already stored by then and the periodic re-send takes over.
+        max.block.ms: 3000
+
+  reactor:
+    # The correlation id of a request reaches the logs of every thread that serves it.
+    context-propagation: auto
+
+  jackson:
+    # Optional fields of the contract are not nullable: absent means "does not apply"
+    # (card of a wallet that has none, rejection when nothing was rejected).
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: true
+
+# Swagger UI shows the contract itself (served by OpenApiContractConfiguration),
+# not the spec springdoc derives from the generated annotations.
+springdoc:
+  swagger-ui:
+    url: /openapi/yanki-api.yml
