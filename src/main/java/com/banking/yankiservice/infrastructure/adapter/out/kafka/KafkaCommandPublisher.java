@@ -1,7 +1,7 @@
 package com.banking.yankiservice.infrastructure.adapter.out.kafka;
 
 import com.banking.yankiservice.application.port.out.CommandPublisherPort;
-import com.banking.yankiservice.domain.model.OutboundCommand;
+import com.banking.yankiservice.domain.model.vo.OutboundCommand;
 import com.banking.yankiservice.infrastructure.config.YankiProperties;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;

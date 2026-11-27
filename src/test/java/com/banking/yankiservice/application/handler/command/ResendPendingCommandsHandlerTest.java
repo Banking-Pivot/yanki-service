@@ -21,9 +21,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.banking.yankiservice.application.port.out.CommandPublisherPort;
-import com.banking.yankiservice.domain.model.OutboundCommand;
 import com.banking.yankiservice.domain.model.Payment;
 import com.banking.yankiservice.domain.model.Wallet;
+import com.banking.yankiservice.domain.model.vo.OutboundCommand;
 import com.banking.yankiservice.support.InMemoryStores;
 import com.banking.yankiservice.support.RecordingPublisher;
 import java.time.Duration;

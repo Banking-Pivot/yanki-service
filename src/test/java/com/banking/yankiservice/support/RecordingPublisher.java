@@ -1,7 +1,7 @@
 package com.banking.yankiservice.support;
 
 import com.banking.yankiservice.application.port.out.CommandPublisherPort;
-import com.banking.yankiservice.domain.model.OutboundCommand;
+import com.banking.yankiservice.domain.model.vo.OutboundCommand;
 import java.util.ArrayList;
 import java.util.List;
 import reactor.core.publisher.Mono;

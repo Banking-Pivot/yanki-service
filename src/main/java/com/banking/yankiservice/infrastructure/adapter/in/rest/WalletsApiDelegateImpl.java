@@ -14,7 +14,7 @@ import com.banking.yankiservice.application.port.in.UnlinkCardUseCase;
 import com.banking.yankiservice.application.query.ListMovementsQuery;
 import com.banking.yankiservice.application.query.ListWalletsQuery;
 import com.banking.yankiservice.application.query.PageRequest;
-import com.banking.yankiservice.domain.model.DocumentType;
+import com.banking.yankiservice.domain.model.enums.DocumentType;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.api.WalletsApiDelegate;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.LinkCardRequest;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.MovementPageResponse;

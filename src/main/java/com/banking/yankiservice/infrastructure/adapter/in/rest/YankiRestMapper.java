@@ -107,7 +107,7 @@ public class YankiRestMapper {
         .totalPages(page.totalPages());
   }
 
-  private static Rejection rejection(com.banking.yankiservice.domain.model.Rejection rejection) {
+  private static Rejection rejection(com.banking.yankiservice.domain.model.vo.Rejection rejection) {
     return rejection == null
         ? null
         : new Rejection().code(rejection.code()).message(rejection.message());

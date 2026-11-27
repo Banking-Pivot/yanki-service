@@ -7,8 +7,8 @@ import com.banking.yankiservice.application.exception.MovementAlreadyExistsExcep
 import com.banking.yankiservice.application.model.ResultPage;
 import com.banking.yankiservice.application.port.out.MovementStorePort;
 import com.banking.yankiservice.application.query.ListMovementsQuery;
-import com.banking.yankiservice.domain.model.MovementType;
 import com.banking.yankiservice.domain.model.WalletMovement;
+import com.banking.yankiservice.domain.model.enums.MovementType;
 import java.util.UUID;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;

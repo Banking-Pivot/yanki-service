@@ -2,7 +2,7 @@ package com.banking.yankiservice.infrastructure.adapter.out.kafka;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.banking.yankiservice.domain.model.OutboundCommand;
+import com.banking.yankiservice.domain.model.vo.OutboundCommand;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

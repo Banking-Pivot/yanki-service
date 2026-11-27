@@ -1,6 +1,6 @@
 package com.banking.yankiservice.application.port.out;
 
-import com.banking.yankiservice.domain.model.OutboundCommand;
+import com.banking.yankiservice.domain.model.vo.OutboundCommand;
 import reactor.core.publisher.Mono;
 
 /** Sends requests to Card Service and Transaction Service. */

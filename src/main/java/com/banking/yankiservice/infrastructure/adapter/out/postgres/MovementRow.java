@@ -1,8 +1,8 @@
 package com.banking.yankiservice.infrastructure.adapter.out.postgres;
 
-import com.banking.yankiservice.domain.model.Funding;
-import com.banking.yankiservice.domain.model.MovementType;
 import com.banking.yankiservice.domain.model.WalletMovement;
+import com.banking.yankiservice.domain.model.enums.Funding;
+import com.banking.yankiservice.domain.model.enums.MovementType;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

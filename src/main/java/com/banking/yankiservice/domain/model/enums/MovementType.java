@@ -1,4 +1,4 @@
-package com.banking.yankiservice.domain.model;
+package com.banking.yankiservice.domain.model.enums;
 
 /** What a movement of a wallet records. */
 public enum MovementType {

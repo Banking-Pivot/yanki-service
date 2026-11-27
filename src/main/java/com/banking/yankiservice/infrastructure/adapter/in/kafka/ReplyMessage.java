@@ -1,7 +1,7 @@
 package com.banking.yankiservice.infrastructure.adapter.in.kafka;
 
-import com.banking.yankiservice.domain.model.InboundReply;
-import com.banking.yankiservice.domain.model.Rejection;
+import com.banking.yankiservice.domain.model.vo.InboundReply;
+import com.banking.yankiservice.domain.model.vo.Rejection;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.util.UUID;

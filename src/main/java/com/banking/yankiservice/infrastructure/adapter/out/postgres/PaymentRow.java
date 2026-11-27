@@ -1,9 +1,9 @@
 package com.banking.yankiservice.infrastructure.adapter.out.postgres;
 
 import com.banking.yankiservice.domain.model.Payment;
-import com.banking.yankiservice.domain.model.PaymentStatus;
-import com.banking.yankiservice.domain.model.Rejection;
 import com.banking.yankiservice.domain.model.Wallet;
+import com.banking.yankiservice.domain.model.enums.PaymentStatus;
+import com.banking.yankiservice.domain.model.vo.Rejection;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

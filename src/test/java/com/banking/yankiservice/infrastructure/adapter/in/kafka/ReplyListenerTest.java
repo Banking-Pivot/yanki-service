@@ -9,8 +9,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.banking.yankiservice.application.port.in.ApplyReplyUseCase;
-import com.banking.yankiservice.domain.model.InboundReply;
-import com.banking.yankiservice.domain.model.Rejection;
+import com.banking.yankiservice.domain.model.vo.InboundReply;
+import com.banking.yankiservice.domain.model.vo.Rejection;
 import com.banking.yankiservice.infrastructure.config.YankiProperties;
 import com.banking.yankiservice.infrastructure.correlation.CorrelationId;
 import java.math.BigDecimal;

@@ -1,9 +1,9 @@
 package com.banking.yankiservice.application.handler.command;
 
 import com.banking.yankiservice.application.port.out.CommandPublisherPort;
-import com.banking.yankiservice.domain.model.OutboundCommand;
 import com.banking.yankiservice.domain.model.Payment;
 import com.banking.yankiservice.domain.model.Wallet;
+import com.banking.yankiservice.domain.model.vo.OutboundCommand;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

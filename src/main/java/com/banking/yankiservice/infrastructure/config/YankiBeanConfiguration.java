@@ -28,7 +28,7 @@ import com.banking.yankiservice.application.port.out.MovementStorePort;
 import com.banking.yankiservice.application.port.out.PaymentStorePort;
 import com.banking.yankiservice.application.port.out.UnitOfWorkPort;
 import com.banking.yankiservice.application.port.out.WalletStorePort;
-import com.banking.yankiservice.domain.model.PaymentLimits;
+import com.banking.yankiservice.domain.model.vo.PaymentLimits;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.UUID;

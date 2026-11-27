@@ -1,7 +1,7 @@
 package com.banking.yankiservice.infrastructure.adapter.in.kafka;
 
 import com.banking.yankiservice.application.port.in.ApplyReplyUseCase;
-import com.banking.yankiservice.domain.model.InboundReply;
+import com.banking.yankiservice.domain.model.vo.InboundReply;
 import com.banking.yankiservice.infrastructure.config.YankiProperties;
 import com.banking.yankiservice.infrastructure.correlation.CorrelationId;
 import java.time.Duration;

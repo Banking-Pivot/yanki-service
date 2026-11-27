@@ -2,6 +2,10 @@ package com.banking.yankiservice.domain.model;
 
 import com.banking.yankiservice.domain.exception.RuleViolation;
 import com.banking.yankiservice.domain.exception.YankiRuleViolationException;
+import com.banking.yankiservice.domain.model.enums.CardLinkStatus;
+import com.banking.yankiservice.domain.model.enums.DocumentType;
+import com.banking.yankiservice.domain.model.vo.OutboundCommand;
+import com.banking.yankiservice.domain.model.vo.Rejection;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Locale;

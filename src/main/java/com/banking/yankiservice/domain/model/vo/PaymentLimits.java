@@ -1,4 +1,4 @@
-package com.banking.yankiservice.domain.model;
+package com.banking.yankiservice.domain.model.vo;
 
 import com.banking.yankiservice.domain.exception.RuleViolation;
 import com.banking.yankiservice.domain.exception.YankiRuleViolationException;

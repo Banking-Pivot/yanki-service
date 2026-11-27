@@ -1,6 +1,6 @@
 package com.banking.yankiservice.application.command;
 
-import com.banking.yankiservice.domain.model.DocumentType;
+import com.banking.yankiservice.domain.model.enums.DocumentType;
 
 /** Opens a wallet for a person identified by a document and a mobile phone. */
 public record RegisterWalletCommand(

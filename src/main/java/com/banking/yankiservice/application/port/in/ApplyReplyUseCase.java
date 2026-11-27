@@ -1,6 +1,6 @@
 package com.banking.yankiservice.application.port.in;
 
-import com.banking.yankiservice.domain.model.InboundReply;
+import com.banking.yankiservice.domain.model.vo.InboundReply;
 import reactor.core.publisher.Mono;
 
 /**

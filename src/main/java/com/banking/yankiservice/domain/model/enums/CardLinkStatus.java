@@ -1,4 +1,4 @@
-package com.banking.yankiservice.domain.model;
+package com.banking.yankiservice.domain.model.enums;
 
 /** How far the link of a wallet to a debit card got. Only LINKED changes where the money is. */
 public enum CardLinkStatus {

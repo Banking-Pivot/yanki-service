@@ -1,8 +1,8 @@
 package com.banking.yankiservice.support;
 
-import com.banking.yankiservice.domain.model.DocumentType;
-import com.banking.yankiservice.domain.model.PaymentLimits;
 import com.banking.yankiservice.domain.model.Wallet;
+import com.banking.yankiservice.domain.model.enums.DocumentType;
+import com.banking.yankiservice.domain.model.vo.PaymentLimits;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;

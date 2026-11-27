@@ -7,7 +7,7 @@ import com.banking.yankiservice.application.exception.ConcurrentChangeException;
 import com.banking.yankiservice.application.exception.PaymentAlreadyExistsException;
 import com.banking.yankiservice.application.port.out.PaymentStorePort;
 import com.banking.yankiservice.domain.model.Payment;
-import com.banking.yankiservice.domain.model.PaymentStatus;
+import com.banking.yankiservice.domain.model.enums.PaymentStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

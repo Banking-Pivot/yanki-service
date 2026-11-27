@@ -1,4 +1,4 @@
-package com.banking.yankiservice.domain.model;
+package com.banking.yankiservice.domain.model.vo;
 
 import static com.banking.yankiservice.support.Fixtures.LIMITS;
 import static com.banking.yankiservice.support.Fixtures.money;

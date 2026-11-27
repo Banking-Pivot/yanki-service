@@ -9,8 +9,8 @@ import com.banking.yankiservice.application.exception.PhoneAlreadyRegisteredExce
 import com.banking.yankiservice.application.model.ResultPage;
 import com.banking.yankiservice.application.port.out.WalletStorePort;
 import com.banking.yankiservice.application.query.ListWalletsQuery;
-import com.banking.yankiservice.domain.model.CardLinkStatus;
 import com.banking.yankiservice.domain.model.Wallet;
+import com.banking.yankiservice.domain.model.enums.CardLinkStatus;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.data.domain.Sort;

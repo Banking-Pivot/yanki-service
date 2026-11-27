@@ -1,4 +1,4 @@
-package com.banking.yankiservice.domain.model;
+package com.banking.yankiservice.domain.model.enums;
 
 /** Where the money of one side of a payment is. */
 public enum Funding {

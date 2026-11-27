@@ -1,5 +1,7 @@
 package com.banking.yankiservice.domain.model;
 
+import com.banking.yankiservice.domain.model.enums.CardLinkStatus;
+import com.banking.yankiservice.domain.model.vo.Rejection;
 import java.time.Instant;
 import java.util.UUID;
 

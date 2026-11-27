@@ -1,5 +1,7 @@
 package com.banking.yankiservice.domain.model;
 
+import com.banking.yankiservice.domain.model.enums.Funding;
+import com.banking.yankiservice.domain.model.enums.MovementType;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

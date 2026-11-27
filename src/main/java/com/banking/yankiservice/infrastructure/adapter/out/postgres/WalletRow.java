@@ -1,10 +1,10 @@
 package com.banking.yankiservice.infrastructure.adapter.out.postgres;
 
 import com.banking.yankiservice.domain.model.CardLink;
-import com.banking.yankiservice.domain.model.CardLinkStatus;
-import com.banking.yankiservice.domain.model.DocumentType;
-import com.banking.yankiservice.domain.model.Rejection;
 import com.banking.yankiservice.domain.model.Wallet;
+import com.banking.yankiservice.domain.model.enums.CardLinkStatus;
+import com.banking.yankiservice.domain.model.enums.DocumentType;
+import com.banking.yankiservice.domain.model.vo.Rejection;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package com.banking.yankiservice.domain.model;
+package com.banking.yankiservice.domain.model.vo;
 
 import java.math.BigDecimal;
 import java.util.Objects;

@@ -1,4 +1,4 @@
-package com.banking.yankiservice.domain.model;
+package com.banking.yankiservice.domain.model.enums;
 
 /** How a payment is going. */
 public enum PaymentStatus {

@@ -1,6 +1,6 @@
 package com.banking.yankiservice.infrastructure.adapter.out.kafka;
 
-import com.banking.yankiservice.domain.model.OutboundCommand;
+import com.banking.yankiservice.domain.model.vo.OutboundCommand;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
 import java.util.UUID;
