@@ -1,0 +1,13 @@
+# Inside the cluster the service is reached at http://yanki-service:8087
+apiVersion: v1
+kind: Service
+metadata:
+  name: yanki-service
+  labels:
+    app: yanki-service
+spec:
+  selector:
+    app: yanki-service
+  ports:
+    - port: 8087
+      targetPort: 8087
