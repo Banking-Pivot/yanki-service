@@ -3,7 +3,9 @@ package com.banking.yankiservice.infrastructure.adapter.in.rest;
 import com.banking.yankiservice.application.command.LinkCardCommand;
 import com.banking.yankiservice.application.command.RegisterWalletCommand;
 import com.banking.yankiservice.application.command.TopUpWalletCommand;
+import com.banking.yankiservice.application.command.UpdateWalletCommand;
 import com.banking.yankiservice.application.model.RecordedTopUp;
+import com.banking.yankiservice.application.port.in.CloseWalletUseCase;
 import com.banking.yankiservice.application.port.in.GetWalletUseCase;
 import com.banking.yankiservice.application.port.in.LinkCardUseCase;
 import com.banking.yankiservice.application.port.in.ListMovementsUseCase;
@@ -11,6 +13,7 @@ import com.banking.yankiservice.application.port.in.ListWalletsUseCase;
 import com.banking.yankiservice.application.port.in.RegisterWalletUseCase;
 import com.banking.yankiservice.application.port.in.TopUpWalletUseCase;
 import com.banking.yankiservice.application.port.in.UnlinkCardUseCase;
+import com.banking.yankiservice.application.port.in.UpdateWalletUseCase;
 import com.banking.yankiservice.application.query.ListMovementsQuery;
 import com.banking.yankiservice.application.query.ListWalletsQuery;
 import com.banking.yankiservice.application.query.PageRequest;
@@ -21,6 +24,7 @@ import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.M
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.MovementResponse;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.RegisterWalletRequest;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.TopUpRequest;
+import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.UpdateWalletRequest;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.WalletPageResponse;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.WalletResponse;
 import com.banking.yankiservice.infrastructure.correlation.CorrelationId;
@@ -34,11 +38,13 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Wallets: opening one, reading them, top-ups, the link to a debit card and the movements.
+ * Wallets: opening one, reading them, updating and closing one, top-ups, the link to a debit card
+ * and the movements.
  *
  * <p>A top-up answers 201 with its movement; a recognized repeat answers the same with {@code
  * Idempotent-Replayed: true}. A link request answers 202 with the wallet waiting for Card Service;
- * the result is read from the wallet.
+ * the result is read from the wallet. An update answers 200 with the wallet and a close answers
+ * 204, also for a wallet that was already closed.
  */
 @Component
 @RequiredArgsConstructor
@@ -50,6 +56,8 @@ public class WalletsApiDelegateImpl implements WalletsApiDelegate {
   private final RegisterWalletUseCase registerWallet;
   private final GetWalletUseCase getWallet;
   private final ListWalletsUseCase listWallets;
+  private final UpdateWalletUseCase updateWallet;
+  private final CloseWalletUseCase closeWallet;
   private final TopUpWalletUseCase topUpWallet;
   private final LinkCardUseCase linkCard;
   private final UnlinkCardUseCase unlinkCard;
@@ -87,6 +95,23 @@ public class WalletsApiDelegateImpl implements WalletsApiDelegate {
   @Override
   public Mono<ResponseEntity<WalletResponse>> getWallet(UUID walletId, ServerWebExchange exchange) {
     return getWallet.execute(walletId).map(mapper::toResponse).map(ResponseEntity::ok);
+  }
+
+  @Override
+  public Mono<ResponseEntity<WalletResponse>> updateWallet(
+      UUID walletId, Mono<UpdateWalletRequest> request, ServerWebExchange exchange) {
+    return request
+        .map(body -> new UpdateWalletCommand(walletId, body.getImei(), body.getEmail()))
+        .flatMap(updateWallet::execute)
+        .map(mapper::toResponse)
+        .map(ResponseEntity::ok);
+  }
+
+  @Override
+  public Mono<ResponseEntity<Void>> closeWallet(UUID walletId, ServerWebExchange exchange) {
+    return closeWallet
+        .execute(walletId)
+        .then(Mono.fromSupplier(() -> ResponseEntity.noContent().<Void>build()));
   }
 
   @Override

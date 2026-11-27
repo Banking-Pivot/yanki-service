@@ -140,10 +140,14 @@ public class PostgresWalletAdapter implements WalletStorePort {
     return template.selectOne(query(criteria), WalletRow.class).map(WalletRow::toWallet);
   }
 
-  // Who the wallet belongs to never changes. The balance and the whole card link do; a wallet that
-  // was unlinked gets its card columns emptied.
+  // The document and the mobile number of the wallet never change. Its status, its contact data,
+  // the balance and the whole card link do; a wallet that was unlinked gets its card columns
+  // emptied.
   private static Update changesOf(WalletRow row) {
     return Update.update("balance", row.balance())
+        .set("status", row.status().name())
+        .set("imei", row.imei())
+        .set("email", row.email())
         .set("cardId", row.cardId())
         .set("cardLinkId", row.cardLinkId())
         .set(CARD_LINK_STATUS, row.cardLinkStatus())

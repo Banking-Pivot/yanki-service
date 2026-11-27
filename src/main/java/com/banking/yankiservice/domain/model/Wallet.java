@@ -4,6 +4,7 @@ import com.banking.yankiservice.domain.exception.RuleViolation;
 import com.banking.yankiservice.domain.exception.YankiRuleViolationException;
 import com.banking.yankiservice.domain.model.enums.CardLinkStatus;
 import com.banking.yankiservice.domain.model.enums.DocumentType;
+import com.banking.yankiservice.domain.model.enums.WalletStatus;
 import com.banking.yankiservice.domain.model.vo.OutboundCommand;
 import com.banking.yankiservice.domain.model.vo.Rejection;
 import java.math.BigDecimal;
@@ -28,6 +29,10 @@ import lombok.Getter;
  * of Card Service, and an answer only counts for the request it was asked for. A card is linked
  * only when its holder has the identity document of the wallet.
  *
+ * <p>A wallet is {@code ACTIVE} until its owner closes it, which needs the balance at zero and no
+ * card linked or being checked. A {@code CLOSED} wallet stays closed: it cannot be topped up,
+ * updated, linked to a card, pay or be paid.
+ *
  * <p>Instances are immutable; every change returns a new one with the next {@code version}.
  */
 @Getter
@@ -45,6 +50,10 @@ public final class Wallet {
   private static final int MAX_EMAIL = 254;
 
   private final UUID id;
+
+  /** Whether the wallet can still be used; a wallet built without it is ACTIVE. */
+  @Builder.Default private final WalletStatus status = WalletStatus.ACTIVE;
+
   private final DocumentType documentType;
   private final String documentNumber;
   private final String phoneNumber;
@@ -91,12 +100,76 @@ public final class Wallet {
   }
 
   /**
+   * Replaces the contact data of the wallet. The document and the mobile number never change.
+   *
+   * @param imei IMEI of the phone: 15 digits
+   * @param email stored in lower case
+   * @throws YankiRuleViolationException {@code WALLET_CLOSED} when the wallet is closed, or when a
+   *     value does not have the shape it must have
+   */
+  public Wallet updateContact(String imei, String email, Instant now) {
+    requireOpen();
+    return changed(now)
+        .imei(shaped(imei, IMEI_DIGITS, RuleViolation.INVALID_IMEI))
+        .email(normalizedEmail(email))
+        .build();
+  }
+
+  /**
+   * Closes the wallet for good.
+   *
+   * @return the closed wallet, or this same wallet when it is already closed
+   * @throws YankiRuleViolationException {@code WALLET_HAS_CARD} while a card is linked or being
+   *     checked, {@code WALLET_HAS_BALANCE} while the balance is not zero
+   */
+  public Wallet close(Instant now) {
+    if (isClosed()) {
+      return this;
+    }
+    if (cardLink != null && (cardLink.isLinked() || cardLink.isPending())) {
+      throw new YankiRuleViolationException(
+          RuleViolation.WALLET_HAS_CARD,
+          "The wallet has a debit card linked or being checked; unlink it first.");
+    }
+    if (balance.signum() != 0) {
+      throw new YankiRuleViolationException(
+          RuleViolation.WALLET_HAS_BALANCE, "Only a wallet with balance zero can be closed.");
+    }
+    return changed(now).status(WalletStatus.CLOSED).build();
+  }
+
+  /** Whether the wallet was closed. */
+  public boolean isClosed() {
+    return status == WalletStatus.CLOSED;
+  }
+
+  /**
+   * Passes when the wallet can still be used.
+   *
+   * @throws YankiRuleViolationException {@code WALLET_CLOSED} when the wallet is closed
+   */
+  public void requireOpen() {
+    if (isClosed()) {
+      throw new YankiRuleViolationException(RuleViolation.WALLET_CLOSED, "The wallet is closed.");
+    }
+  }
+
+  /** The rule closing a wallet breaks while a payment it sent or receives is still pending. */
+  public static YankiRuleViolationException hasPendingPayment() {
+    return new YankiRuleViolationException(
+        RuleViolation.WALLET_HAS_PENDING_PAYMENT,
+        "The wallet has a payment in progress; close it when the payment is finished.");
+  }
+
+  /**
    * Loads money into the balance.
    *
-   * @throws YankiRuleViolationException {@code WALLET_LINKED_TO_CARD} while the wallet is linked,
-   *     {@code BALANCE_LIMIT_EXCEEDED} when the balance would pass the maximum
+   * @throws YankiRuleViolationException {@code WALLET_CLOSED} when the wallet is closed, {@code
+   *     WALLET_LINKED_TO_CARD} while the wallet is linked, {@code BALANCE_LIMIT_EXCEEDED} when the
+   *     balance would pass the maximum
    */
   public Wallet topUp(BigDecimal amount, Instant now) {
+    requireOpen();
     if (isLinkedToCard()) {
       throw new YankiRuleViolationException(
           RuleViolation.WALLET_LINKED_TO_CARD,
@@ -133,11 +206,12 @@ public final class Wallet {
    * @param linkId ID of this request, used only when a new request is made
    * @return the wallet waiting for Card Service, or this same wallet when it already asked for that
    *     card and the request is pending or linked
-   * @throws YankiRuleViolationException {@code WALLET_ALREADY_LINKED} when it is linked to another
-   *     card
+   * @throws YankiRuleViolationException {@code WALLET_CLOSED} when the wallet is closed, {@code
+   *     WALLET_ALREADY_LINKED} when it is linked to another card
    */
   public Wallet requestCardLink(UUID linkId, UUID cardId, String correlationId, Instant now) {
     Objects.requireNonNull(cardId, "cardId");
+    requireOpen();
     if (cardLink != null && cardLink.status() != CardLinkStatus.REJECTED) {
       if (cardLink.cardId().equals(cardId)) {
         return this;
@@ -193,9 +267,9 @@ public final class Wallet {
         : Optional.empty();
   }
 
-  /** The wallet without a card, or this same wallet when it has none. */
+  /** The wallet without a card, or this same wallet when it has none or is closed. */
   public Wallet unlinkCard(Instant now) {
-    return cardLink == null ? this : changed(now).cardLink(null).build();
+    return cardLink == null || isClosed() ? this : changed(now).cardLink(null).build();
   }
 
   /**

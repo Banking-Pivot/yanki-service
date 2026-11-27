@@ -35,6 +35,9 @@ public interface PaymentStorePort {
    */
   Mono<BigDecimal> sumSentBetween(UUID fromWalletId, Instant from, Instant until);
 
+  /** Whether a payment the wallet sent, or is to receive, still waits for Transaction Service. */
+  Mono<Boolean> hasPendingOf(UUID walletId);
+
   /**
    * Payments still waiting for Transaction Service whose request was sent before the given instant,
    * oldest first.

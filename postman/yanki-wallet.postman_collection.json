@@ -2170,6 +2170,406 @@
           }
         }
       ]
+    },
+    {
+      "name": "7. Actualizar y cerrar un monedero",
+      "description": "Los datos de contacto de un monedero, el correo y el IMEI del celular, se cambian con PUT; el documento y el número de celular no cambian, porque el celular es como los demás le pagan. DELETE cierra el monedero: no se borra, queda CLOSED y se sigue leyendo con sus movimientos, pero ya no se recarga, no se actualiza, no se asocia a una tarjeta y no envía ni recibe pagos. Solo se cierra un monedero con saldo cero (WALLET_HAS_BALANCE), sin tarjeta asociada ni en verificación (WALLET_HAS_CARD) y sin pagos pendientes (WALLET_HAS_PENDING_PAYMENT). El celular y el documento de un monedero cerrado quedan reservados. La carpeta usa dos monederos propios, D y E.",
+      "item": [
+        {
+          "name": "69 Crear el monedero de D",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Monederos propios de la carpeta: uno se actualiza y otro se cierra, sin tocar los de A, B y C.",
+                  "pm.collectionVariables.set('phoneD', '9' + String(Math.floor(10000000 + Math.random() * 90000000)));",
+                  "pm.collectionVariables.set('documentD', String(Math.floor(10000000 + Math.random() * 90000000)));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('El monedero nace ACTIVE', () => pm.expect(pm.response.json().status).to.eql('ACTIVE'));",
+                  "pm.collectionVariables.set('walletDId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"{{documentD}}\",\n  \"phoneNumber\": \"{{phoneD}}\",\n  \"imei\": \"353879234252633\",\n  \"email\": \"diana.luna@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "70 Actualizar el correo y el IMEI del monedero de D (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Cambian el IMEI y el correo, que queda en minúsculas', () => {",
+                  "  pm.expect(body.imei).to.eql('867530912345678');",
+                  "  pm.expect(body.email).to.eql('diana.nueva@example.com');",
+                  "});",
+                  "pm.test('El celular, el documento, el saldo y el estado no cambian', () => {",
+                  "  pm.expect(body.id).to.eql(pm.collectionVariables.get('walletDId'));",
+                  "  pm.expect(body.phoneNumber).to.eql(pm.collectionVariables.get('phoneD'));",
+                  "  pm.expect(body.documentNumber).to.eql(pm.collectionVariables.get('documentD'));",
+                  "  pm.expect(body.balance).to.eql(0);",
+                  "  pm.expect(body.status).to.eql('ACTIVE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletDId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei\": \"867530912345678\",\n  \"email\": \"Diana.Nueva@Example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "71 Actualizar con un IMEI de 14 dígitos (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Código INVALID_REQUEST', () => pm.expect(pm.response.json().code).to.eql('INVALID_REQUEST'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletDId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei\": \"86753091234567\",\n  \"email\": \"diana.nueva@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "72 Actualizar un monedero que no existe (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('Código WALLET_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('WALLET_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{$guid}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei\": \"867530912345678\",\n  \"email\": \"diana.nueva@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "73 Recargar 20 al monedero de D",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Saldo 20', () => pm.expect(pm.response.json().balanceAfter).to.eql(20));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletDId}}/top-ups",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operationId\": \"{{$guid}}\",\n  \"amount\": 20\n}"
+            }
+          }
+        },
+        {
+          "name": "74 Cerrar el monedero de D con saldo (422 WALLET_HAS_BALANCE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 WALLET_HAS_BALANCE: solo se cierra un monedero con saldo cero', () => {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(pm.response.json().code).to.eql('WALLET_HAS_BALANCE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletDId}}"
+          }
+        },
+        {
+          "name": "75 Crear el monedero de E",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('phoneE', '9' + String(Math.floor(10000000 + Math.random() * 90000000)));",
+                  "pm.collectionVariables.set('documentE', String(Math.floor(10000000 + Math.random() * 90000000)));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('walletEId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"{{documentE}}\",\n  \"phoneNumber\": \"{{phoneE}}\",\n  \"imei\": \"358240051111110\",\n  \"email\": \"elias.soto@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "76 Cerrar el monedero de E, con saldo cero (204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletEId}}"
+          }
+        },
+        {
+          "name": "77 Cerrar de nuevo el monedero de E (204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content: cerrar un monedero ya cerrado no cambia nada', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletEId}}"
+          }
+        },
+        {
+          "name": "78 El monedero de E se sigue leyendo y está CLOSED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Estado CLOSED, con su celular y saldo 0', () => {",
+                  "  pm.expect(pm.response.json().status).to.eql('CLOSED');",
+                  "  pm.expect(pm.response.json().phoneNumber).to.eql(pm.collectionVariables.get('phoneE'));",
+                  "  pm.expect(pm.response.json().balance).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletEId}}"
+          }
+        },
+        {
+          "name": "79 Recargar el monedero cerrado (422 WALLET_CLOSED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 WALLET_CLOSED: un monedero cerrado no se recarga', () => {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(pm.response.json().code).to.eql('WALLET_CLOSED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletEId}}/top-ups",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operationId\": \"{{$guid}}\",\n  \"amount\": 10\n}"
+            }
+          }
+        },
+        {
+          "name": "80 D paga 5 al celular del monedero cerrado (422 WALLET_CLOSED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// El pago a un monedero cerrado se rechaza al pedirlo, sin registrarse: no hay resultado que esperar.",
+                  "pm.test('422 WALLET_CLOSED: un monedero cerrado no recibe pagos', () => {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(pm.response.json().code).to.eql('WALLET_CLOSED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/yanki/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operationId\": \"{{$guid}}\",\n  \"fromPhoneNumber\": \"{{phoneD}}\",\n  \"toPhoneNumber\": \"{{phoneE}}\",\n  \"amount\": 5,\n  \"description\": \"Almuerzo\"\n}"
+            }
+          }
+        },
+        {
+          "name": "81 El pago rechazado no movió el saldo de D: 20",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Saldo 20', () => pm.expect(pm.response.json().balance).to.eql(20));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{walletDId}}"
+          }
+        },
+        {
+          "name": "82 Cerrar un monedero que no existe (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('Código WALLET_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('WALLET_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/yanki/wallets/{{$guid}}"
+          }
+        }
+      ]
     }
   ],
   "auth": {
@@ -2315,6 +2715,30 @@
     },
     {
       "key": "limitOperationId",
+      "value": ""
+    },
+    {
+      "key": "phoneD",
+      "value": ""
+    },
+    {
+      "key": "documentD",
+      "value": ""
+    },
+    {
+      "key": "walletDId",
+      "value": ""
+    },
+    {
+      "key": "phoneE",
+      "value": ""
+    },
+    {
+      "key": "documentE",
+      "value": ""
+    },
+    {
+      "key": "walletEId",
       "value": ""
     }
   ]

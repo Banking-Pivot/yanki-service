@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Yanki API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     API of Yanki, the mobile wallet of the bank. Anyone with an identity document, a mobile
     number, the IMEI of the phone and an email can open a wallet; being a customer of the bank
@@ -30,6 +30,11 @@ info:
 
     A request that gets no answer is sent again until it is answered; every step is idempotent,
     so a repeat never moves money twice.
+
+    A wallet is ACTIVE until it is closed with DELETE /api/v1/yanki/wallets/{walletId}. A
+    CLOSED wallet and its movements can still be read, but it cannot be changed, topped up,
+    linked to a card, pay or be paid. Its mobile number and its identity document stay
+    reserved: they cannot open another wallet.
 
     Amounts have at most two decimals. Instants are UTC.
 servers:
@@ -138,6 +143,66 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/WalletNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags: [Wallets]
+      operationId: updateWallet
+      summary: Update the contact data of a wallet
+      description: |
+        Replaces the email and the IMEI of the phone, with the same rules as when the wallet
+        was opened. The identity document and the mobile number never change: the mobile
+        number is how others pay the wallet. A CLOSED wallet is refused with 422 WALLET_CLOSED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWalletRequest'
+            example:
+              imei: '490154203237518'
+              email: ana.new@example.com
+      responses:
+        '200':
+          description: The wallet with its new contact data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/WalletNotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/BusinessRule'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Wallets]
+      operationId: closeWallet
+      summary: Close a wallet
+      description: |
+        Logical delete: the wallet becomes CLOSED and stays that way. The wallet and its
+        movements can still be read. A wallet that is already CLOSED answers 204 as well.
+
+        Only an empty wallet with nothing in progress is closed. Otherwise the request is
+        refused with 422: WALLET_HAS_CARD while a debit card is LINKED or PENDING (unlink it
+        first), WALLET_HAS_BALANCE while the balance is not 0.00, and
+        WALLET_HAS_PENDING_PAYMENT while a payment it sent or receives is PENDING.
+
+        The mobile number and the identity document of a closed wallet stay reserved: opening
+        a wallet with either of them is still refused with 409.
+      responses:
+        '204':
+          description: The wallet is closed.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/WalletNotFound'
+        '422':
+          $ref: '#/components/responses/BusinessRule'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/v1/yanki/wallets/{walletId}/top-ups:
@@ -435,7 +500,10 @@ components:
         while linked), CARD_ALREADY_LINKED (the card is linked to another wallet, or being
         checked for it), PAYMENT_LIMIT_EXCEEDED (the amount is above the maximum per payment),
         DAILY_LIMIT_EXCEEDED (the wallet would send more than the maximum per day),
-        BALANCE_LIMIT_EXCEEDED.
+        BALANCE_LIMIT_EXCEEDED, WALLET_CLOSED (a top-up, an update, a card link or a payment
+        from or to a closed wallet), WALLET_HAS_BALANCE (closing a wallet that has money),
+        WALLET_HAS_CARD (closing a wallet whose card is LINKED or PENDING),
+        WALLET_HAS_PENDING_PAYMENT (closing a wallet with a payment still PENDING).
       content:
         application/json:
           schema:
@@ -502,6 +570,23 @@ components:
           maxLength: 254
           description: Stored in lower case.
           example: ana.perez@example.com
+    UpdateWalletRequest:
+      title: UpdateWalletRequest
+      type: object
+      additionalProperties: false
+      required: [imei, email]
+      properties:
+        imei:
+          type: string
+          pattern: '^\d{15}$'
+          description: IMEI of the phone, 15 digits.
+          example: '490154203237518'
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Stored in lower case.
+          example: ana.new@example.com
     TopUpRequest:
       title: TopUpRequest
       type: object
@@ -559,11 +644,13 @@ components:
     WalletResponse:
       title: WalletResponse
       type: object
-      required: [id, documentType, documentNumber, phoneNumber, imei, email, balance, currency, createdAt, updatedAt]
+      required: [id, status, documentType, documentNumber, phoneNumber, imei, email, balance, currency, createdAt, updatedAt]
       properties:
         id:
           type: string
           format: uuid
+        status:
+          $ref: '#/components/schemas/WalletStatus'
         documentType:
           $ref: '#/components/schemas/DocumentType'
         documentNumber:
@@ -780,6 +867,11 @@ components:
       title: DocumentType
       type: string
       enum: [DNI, CEX, PASSPORT]
+    WalletStatus:
+      title: WalletStatus
+      type: string
+      enum: [ACTIVE, CLOSED]
+      description: CLOSED is final; a closed wallet can only be read.
     CardLinkStatus:
       title: CardLinkStatus
       type: string

@@ -17,6 +17,7 @@ import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.P
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.Rejection;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.WalletPageResponse;
 import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.WalletResponse;
+import com.banking.yankiservice.infrastructure.adapter.in.rest.generated.model.WalletStatus;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -31,6 +32,7 @@ public class YankiRestMapper {
     WalletResponse response =
         new WalletResponse()
             .id(wallet.getId())
+            .status(WalletStatus.fromValue(wallet.getStatus().name()))
             .documentType(DocumentType.fromValue(wallet.getDocumentType().name()))
             .documentNumber(wallet.getDocumentNumber())
             .phoneNumber(wallet.getPhoneNumber())

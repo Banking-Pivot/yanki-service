@@ -44,6 +44,9 @@ import reactor.core.publisher.Mono;
  *       asked to credit the main account of the receiver's card.
  * </ul>
  *
+ * <p>A closed wallet neither pays nor is paid: the payment is refused with {@code WALLET_CLOSED}
+ * and nothing is stored.
+ *
  * <p>Before anything is stored the payment must fit the limits: the most one payment can move and
  * the most the sender can send in a day, counting what it already sent today that was not rejected.
  * Every payment writes its sender, with the version it was read with, in the same transaction as
@@ -159,7 +162,8 @@ public class RequestPaymentHandler implements RequestPaymentUseCase {
             Mono.error(
                 () ->
                     new WalletNotFoundException(
-                        "The mobile number of the " + side + " has no wallet.")));
+                        "The mobile number of the " + side + " has no wallet.")))
+        .doOnNext(Wallet::requireOpen);
   }
 
   private Mono<Payment> store(

@@ -32,6 +32,7 @@ public class PostgresPaymentAdapter implements PaymentStorePort {
   private static final String COMMAND_SENT_AT = "commandSentAt";
   private static final String CREATED_AT = "createdAt";
   private static final String STATUS = "status";
+  private static final String FROM_WALLET_ID = "fromWalletId";
 
   private final R2dbcEntityTemplate template;
 
@@ -70,6 +71,16 @@ public class PostgresPaymentAdapter implements PaymentStorePort {
   }
 
   @Override
+  public Mono<Boolean> hasPendingOf(UUID walletId) {
+    return template.exists(
+        query(
+            where(STATUS)
+                .is(PaymentStatus.PENDING.name())
+                .and(where(FROM_WALLET_ID).is(walletId).or("toWalletId").is(walletId))),
+        PaymentRow.class);
+  }
+
+  @Override
   public Flux<Payment> findPendingSince(Instant sentBefore, int limit) {
     return template
         .select(
@@ -91,7 +102,7 @@ public class PostgresPaymentAdapter implements PaymentStorePort {
     return template
         .select(
             query(
-                where("fromWalletId")
+                where(FROM_WALLET_ID)
                     .is(fromWalletId)
                     .and(CREATED_AT)
                     .greaterThanOrEquals(from)

@@ -298,6 +298,18 @@ public final class InMemoryStores implements UnitOfWorkPort {
     }
 
     @Override
+    public Mono<Boolean> hasPendingOf(UUID walletId) {
+      return Mono.fromSupplier(
+          () ->
+              paymentRows.values().stream()
+                  .filter(Payment::isPending)
+                  .anyMatch(
+                      payment ->
+                          payment.getFromWalletId().equals(walletId)
+                              || payment.getToWalletId().equals(walletId)));
+    }
+
+    @Override
     public Flux<Payment> findPendingSince(Instant sentBefore, int limit) {
       return Flux.defer(() -> Flux.fromIterable(List.copyOf(paymentRows.values())))
           .filter(Payment::isPending)

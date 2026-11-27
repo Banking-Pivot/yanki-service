@@ -4,6 +4,7 @@ import com.banking.yankiservice.domain.model.CardLink;
 import com.banking.yankiservice.domain.model.Wallet;
 import com.banking.yankiservice.domain.model.enums.CardLinkStatus;
 import com.banking.yankiservice.domain.model.enums.DocumentType;
+import com.banking.yankiservice.domain.model.enums.WalletStatus;
 import com.banking.yankiservice.domain.model.vo.Rejection;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,6 +20,7 @@ import org.springframework.data.relational.core.mapping.Table;
 @Table("wallets")
 public record WalletRow(
     @Id UUID id,
+    WalletStatus status,
     DocumentType documentType,
     String documentNumber,
     String phoneNumber,
@@ -43,6 +45,7 @@ public record WalletRow(
     Rejection rejection = link == null ? null : link.rejection();
     return new WalletRow(
         wallet.getId(),
+        wallet.getStatus(),
         wallet.getDocumentType(),
         wallet.getDocumentNumber(),
         wallet.getPhoneNumber(),
@@ -66,6 +69,7 @@ public record WalletRow(
   Wallet toWallet() {
     return Wallet.builder()
         .id(id)
+        .status(status)
         .documentType(documentType)
         .documentNumber(documentNumber)
         .phoneNumber(phoneNumber)

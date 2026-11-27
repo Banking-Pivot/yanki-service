@@ -1,6 +1,7 @@
 package com.banking.yankiservice.infrastructure.config;
 
 import com.banking.yankiservice.application.handler.command.ApplyReplyHandler;
+import com.banking.yankiservice.application.handler.command.CloseWalletHandler;
 import com.banking.yankiservice.application.handler.command.CommandDispatcher;
 import com.banking.yankiservice.application.handler.command.LinkCardHandler;
 import com.banking.yankiservice.application.handler.command.RegisterWalletHandler;
@@ -8,11 +9,13 @@ import com.banking.yankiservice.application.handler.command.RequestPaymentHandle
 import com.banking.yankiservice.application.handler.command.ResendPendingCommandsHandler;
 import com.banking.yankiservice.application.handler.command.TopUpWalletHandler;
 import com.banking.yankiservice.application.handler.command.UnlinkCardHandler;
+import com.banking.yankiservice.application.handler.command.UpdateWalletHandler;
 import com.banking.yankiservice.application.handler.query.GetPaymentHandler;
 import com.banking.yankiservice.application.handler.query.GetWalletHandler;
 import com.banking.yankiservice.application.handler.query.ListMovementsHandler;
 import com.banking.yankiservice.application.handler.query.ListWalletsHandler;
 import com.banking.yankiservice.application.port.in.ApplyReplyUseCase;
+import com.banking.yankiservice.application.port.in.CloseWalletUseCase;
 import com.banking.yankiservice.application.port.in.GetPaymentUseCase;
 import com.banking.yankiservice.application.port.in.GetWalletUseCase;
 import com.banking.yankiservice.application.port.in.LinkCardUseCase;
@@ -23,6 +26,7 @@ import com.banking.yankiservice.application.port.in.RequestPaymentUseCase;
 import com.banking.yankiservice.application.port.in.ResendPendingCommandsUseCase;
 import com.banking.yankiservice.application.port.in.TopUpWalletUseCase;
 import com.banking.yankiservice.application.port.in.UnlinkCardUseCase;
+import com.banking.yankiservice.application.port.in.UpdateWalletUseCase;
 import com.banking.yankiservice.application.port.out.CommandPublisherPort;
 import com.banking.yankiservice.application.port.out.MovementStorePort;
 import com.banking.yankiservice.application.port.out.PaymentStorePort;
@@ -71,6 +75,17 @@ public class YankiBeanConfiguration {
   @Bean
   public ListWalletsUseCase listWalletsUseCase(WalletStorePort wallets) {
     return new ListWalletsHandler(wallets);
+  }
+
+  @Bean
+  public UpdateWalletUseCase updateWalletUseCase(WalletStorePort wallets, Clock clock) {
+    return new UpdateWalletHandler(wallets, clock);
+  }
+
+  @Bean
+  public CloseWalletUseCase closeWalletUseCase(
+      WalletStorePort wallets, PaymentStorePort payments, Clock clock) {
+    return new CloseWalletHandler(wallets, payments, clock);
   }
 
   @Bean
